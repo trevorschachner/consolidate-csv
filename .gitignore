@@ -1,0 +1,5 @@
+*.csv
+*.ipynb_checkpoints
+
+# MacOS
+.DS_Store
