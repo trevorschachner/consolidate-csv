@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[315]:
+# In[1]:
 
 
 import pandas as pd
 
 
-# In[368]:
+# In[2]:
 
 
 # read in CSV files
@@ -22,7 +22,7 @@ df_transactions = pd.read_csv('transactions.csv', header=0, na_filter=False)
 df_ptransactions = pd.read_csv('paytrace_transactions.csv', header=0, na_filter=False)
 
 
-# In[369]:
+# In[3]:
 
 
 # dictionaries of csv column labels
@@ -68,7 +68,7 @@ us_state_abbrev = {
 }
 
 
-# In[374]:
+# In[4]:
 
 
 # table of people's names (unique)
@@ -79,13 +79,13 @@ us_state_abbrev = {
 #df_ptransactions
 
 
-# In[372]:
+# In[5]:
 
 
 # TODO - CREATE LIST OF NON-UNIQUE NAMES IN CASE THERE ARE DUPLICATES IN THE PEOPLE TABLE
 
 
-# In[371]:
+# In[6]:
 
 
 # new_emails = []
@@ -99,7 +99,7 @@ us_state_abbrev = {
 # df_ptransactions[dict_ptrans['email']] = new_emails
 
 
-# In[373]:
+# In[7]:
 
 
 # set up variables
@@ -142,7 +142,7 @@ for i, row_people in df_people.iterrows():
             counted[j] = "y"
 
 
-# In[333]:
+# In[8]:
 
 
 # Track any donors not in df_people and add to mergedTable
@@ -154,7 +154,7 @@ if(counted != ["y"] * len(df_transactions)):
     for i, row in df_transactions.iterrows():
         if row['Counted'] != "y":
             count+=1
-            print(f"{row[dict_trans['last']]}, {row[dict_trans['first']]}, ${row[dict_trans['amt']]}, {row[dict_trans['company']]}")
+            #print(f"{row[dict_trans['last']]}, {row[dict_trans['first']]}, ${row[dict_trans['amt']]}, {row[dict_trans['company']]}")
             uncountedPerson = [row[dict_trans['first']], "", row[dict_trans['last']],"", "", "", row[dict_trans['amt']]]
             mergedTable.append(uncountedPerson)
     print("\nTotal: {}".format(count))
@@ -162,7 +162,7 @@ else:
     print("\nConsolidation successful.")
 
 
-# In[334]:
+# In[9]:
 
 
 # turn the list of donation totals into a table
@@ -172,7 +172,7 @@ labels.append('total amount')
 df_merged = pd.DataFrame(mergedTable, columns=labels)
 
 
-# In[335]:
+# In[10]:
 
 
 # function to get name from string format
@@ -207,7 +207,7 @@ def get_recur(invoice):
 # get_recur("01/01/2021 1of999")
 
 
-# In[360]:
+# In[11]:
 
 
 finalTable = []
@@ -253,7 +253,7 @@ for i, row_merged in df_merged.iterrows():
             counted[j] = "y"
 
 
-# In[361]:
+# In[13]:
 
 
 # Track any recuring donors not in df_people and add to finalTable
@@ -266,7 +266,7 @@ if(counted != ["y"] * len(df_ptransactions)):
     for i, row in df_ptransactions.iterrows():
         if row['Counted'] != "y":
             count+=1
-            print(f"{row[dict_ptrans['name']]}, {row[dict_ptrans['email']]}, {row[dict_ptrans['amt']]}, {row[dict_ptrans['recurring']]}")
+            #print(f"{row[dict_ptrans['name']]}, {row[dict_ptrans['email']]}, {row[dict_ptrans['amt']]}, {row[dict_ptrans['recurring']]}")
             
             first_name, last_name = get_name(row[dict_ptrans['name']])
             recurring = get_recur(row[dict_ptrans["recurring"]])
@@ -288,7 +288,7 @@ else:
     print("\nConsolidation successful.")
 
 
-# In[362]:
+# In[14]:
 
 
 # turn the table into a df
@@ -299,14 +299,14 @@ labels += ['recurring payment', 'recurring amt']
 df_final = pd.DataFrame(finalTable, columns=labels)
 
 
-# In[363]:
+# In[15]:
 
 
 # remove all non-donors from df_donors
 df_donors = df_final[df_final['total amount'] > 0]
 
 
-# In[364]:
+# In[16]:
 
 
 # Tag and assign to club based on donation and recurring donation amount
@@ -343,7 +343,7 @@ for i, row_donors in df_donors.iterrows():
         #taggedTable[-1][-1].append("INSTERT TITLE HERE")
 
 
-# In[365]:
+# In[17]:
 
 
 # turn tag list into string to look pretty
@@ -351,7 +351,7 @@ for row in taggedTable:
     row[-1] = ", ".join(row[-1])
 
 
-# In[366]:
+# In[18]:
 
 
 # turn the table into a df
@@ -363,7 +363,7 @@ df_tagged = pd.DataFrame(taggedTable, columns=labels)
 # df_tagged
 
 
-# In[367]:
+# In[19]:
 
 
 # export it as a CSV
