@@ -10,13 +10,12 @@ import pandas as pd
 # In[ ]:
 
 
-# read in CSV files
-# na_filter=False means fill empty cells with "" instead of "NaN"
-
 # Assumptions
 # - people.csv doesn't contain duplicate people (ex. John Smith & John Smith are different)
 # - paytrace_transactions.csv rows are in chronological order from top to bottom (most recent last)
 
+# read in CSV files
+# na_filter=False means fill empty cells with "" instead of "NaN"
 df_people = pd.read_csv('people.csv', header=0, na_filter=False)
 df_transactions = pd.read_csv('transactions.csv', header=0, na_filter=False)
 df_ptransactions = pd.read_csv('paytrace_transactions.csv', header=0, na_filter=False)
@@ -49,6 +48,7 @@ dict_ptrans = {"name":"Billing_Name",
                "scholarship_fund":"Donate to Diversity Scholarship",
                "legislative_fund":"Donate to Legislative Fund",
 }
+# dictionary of US state abbreviations
 us_state_abbrev = {
     'Alabama': 'AL','Alaska': 'AK','American Samoa': 'AS','Arizona': 'AZ','Arkansas': 'AR',
     'California': 'CA','Colorado': 'CO','Connecticut': 'CT','Delaware': 'DE','District of Columbia': 'DC',
@@ -69,9 +69,9 @@ us_state_abbrev = {
 
 
 # table of people's names (unique)
-#df_people
+# df_people
 # table of transactions (names may repeat)
-#df_transactions
+# df_transactions
 # table of paytrace transactions (names may repeat)
 #df_ptransactions
 
@@ -80,6 +80,17 @@ us_state_abbrev = {
 
 
 def capitalize_name(first, middle, last):
+    """Fixes name capitalization
+    
+    :param first: the first name
+    :param middle: the middle name
+    :param last: the last name
+    
+    :return: 3 strings. correctly capitalized first, middle, and last name
+    
+    >> capitalize_name("JOHN","k","SMITH")
+    "John", "K", "Smith"
+    """
     names = [first, middle, last]
     for i in range(len(names)):
         temp = ""
@@ -94,17 +105,19 @@ def capitalize_name(first, middle, last):
 # In[ ]:
 
 
-# function to get name from string format
-# ----------------------------------------
-# format example:
-#     username@email.com-Firstname Lastname
-#     email or name may be missing
-#     usename@email.com-None
-#     Firstname Lastname
-# example usage:
-#     first, last = get_name("johndeere@email.com-John Deere")
-def get_name(name):
-    firstlast = name.split("-")[-1]
+def get_name(billing_name):
+    """Parse name from the Paytrace "Billing Name" field
+    
+    :param billing_name: Paytrace Billing Name string
+    - `username@email.com-Firstname Lastname`
+    - email or name may be missing: `usename@email.com-None` or `Firstname Lastname`
+    
+    :return: 2 strings. first and last name
+    
+    >> get_name("johndeere@email.com-John Deere")
+    "John", "Deere"
+    """
+    firstlast = billing_name.split("-")[-1]
     if(" " in firstlast):
         name_arr = firstlast.split()
         # dropping middle name
@@ -115,14 +128,16 @@ def get_name(name):
     
     return "", ""
 
-# function to get recurring info from string
-# ----------------------------------------
-# format example:
-#     01/01/2021 1of999
-#     may be empty
-# example usage:
-#     get_recur("01/01/2021 1of999")
 def get_recur(invoice):
+    """Get recurring payment information from Paytrace "Invoice" field
+    
+    :param: invoice field (`01/01/2021 1of999` or may be empty)
+    
+    :return: string. recurring payment info (XofXXX)
+    
+    >>> get_recur("01/01/2021 1of999")
+    "1of999"
+    """
     if invoice != "":
         return invoice.split()[-1]
     return ""
@@ -131,8 +146,9 @@ def get_recur(invoice):
 # In[ ]:
 
 
-# read row entries and into corresponding variables
 def parse_row(row, label_dict):
+    """read row entries and into corresponding variables
+    """
     
     first_name = ""
     last_name = ""
@@ -147,10 +163,9 @@ def parse_row(row, label_dict):
         print("ERROR: could not get name")
         exit(-1)
 
-##### TODO #####
-# if recurring != '' getrecur(invoice) # 
-# need to always update record with recurring info if they submit one recurring and one single # 
-        
+    ##### TODO #####
+    # if recurring != '' getrecur(invoice) # 
+    # need to always update record with recurring info if they submit one recurring and one single # 
     recurring = ""
     # ptrans
     if "recurring" in label_dict.keys():
@@ -190,22 +205,38 @@ def parse_row(row, label_dict):
 # In[ ]:
 
 
-##################################################################
-# @param df_base :     base dataframe to merge into
-#                      (probably a list of people)
-# @param dict_base :   dictionary of column labels fordf_base
-# @param df2 :         dataframe to merge into df_base
-#                      (probably a list of transactions)
-# @param dict2 :       dictionary of column labels for df2
-# @param append_cols : column names to be appended to the 
-#                      base dataframe
-# @returns 2D array representing the merged table
-##################################################################
+def update_donation_totals(mergedTable, append_cols, data):
+    if "recur_payment" in append_cols and "recur_amt" in append_cols and "total_amt_leg" in append_cols and "total_amt_schol" in append_cols: # ptrans
+        # last cols are total, recurring, recur amt, total amount leg, total amount schol
+        mergedTable[-1][-5] += float(data["amt"])
+        mergedTable[-1][-4] = data["recurring"]
+        mergedTable[-1][-3] = 0.0 if data["recurring"] == "" else data["amt"]
+        mergedTable[-1][-2] += data["amt"] - (data["scholpercent"] * data["amt"])
+        mergedTable[-1][-1] += data["scholpercent"] * data["amt"]
+    elif "total_amount" in append_cols: # trans
+        # last col is total
+        mergedTable[-1][-1] += data["amt"]
+
+
+# In[ ]:
+
+
 def merge(df_base, dict_base, df2, dict2, append_cols):
+    """Merge transactions from a dataframe into a base dataframe
+    
+    :param df_base:     base dataframe to merge into (probably a list of people)
+    :param dict_base:   dictionary of column labels fordf_base
+    :param df2:         dataframe to merge into df_base (probably a list of transactions)
+    :param dict2:       dictionary of column labels for df2
+    :param append_cols: column names to be appended to the base dataframe
+    
+    :return:            2D array. the merged table
+    """
     mergedTable = []
     saved = []
-    # create a list to keep track of which rows in df2 were counted
-    counted = [""] * len(df2)
+    # create a column to keep track of which rows in df2 were counted
+    if 'Counted' not in df2.columns:
+        df2['Counted'] = [""] * len(df2)
     
     # for each person in the base table
     for i, row in df_base.iterrows():
@@ -234,23 +265,34 @@ def merge(df_base, dict_base, df2, dict2, append_cols):
         for j, row2 in df2.iterrows():
             
             first_name, last_name, recurring, email, amt, legpercent, scholpercent = parse_row(row2, dict2)
+            if email == None:
+                print(j, row2)
             
             ##### merge record into mergedTable
-            if (row[dict_base['last']]==last_name and row[dict_base['first']]==first_name                     and first_name != "" and last_name != "")                 or (row[dict_base['email']].lower()==email.lower()                     and email != "")                 and counted[j]!="y":
+            if ((row[dict_base['last']]==last_name and
+                row[dict_base['first']]==first_name and 
+                first_name != "" and
+                last_name != ""
+               ) or (email != "" and
+                     row[dict_base['email']].lower()==email.lower() 
+                    )) and row2['Counted'] != "y":
                 
-                if row[dict_base['email']].lower()!=email.lower() and email != "":
+                if 'email' not in dict_base.keys() or (row[dict_base['email']].lower()!=email.lower() and email != ""):
+                    base_email = row[dict_base['email']] if 'email' in dict_base.keys() else ""
+                    base_state = row[dict_base['state']] if 'email' in dict_base.keys() else ""
+                    state2 = row2[dict2['state']] if 'state' in dict2.keys() else ""
+                    ans = input(f"Is {row[dict_base['first']]} {row[dict_base['last']]} {base_email} ({base_state}) the same person as"
+                        + f" {first_name} {last_name} {email} ({state2}) ? [y/N]\n")
                    # if df_duplicate_accounts.isin([email]).any().any()==True
                         #pass
                     #else:
-                    ans = input(f"Is {row[dict_base['first']]} {row[dict_base['last']]} {row[dict_base['email']]} ({row[dict_base['state']]}) the same person as"
-                        + f" {first_name} {last_name} {email} ({row2[dict2['state']]}) ? [y/N]\n")
                 
-                    # if user says they are the same person, save this info
+                    # TODO: if user says they are the same person, save this info
                     # Example: Jeff Carroll is Jeffrey Carroll in the people table
                     if(ans.lower() == 'y'):
                         save_entry = [row[dict_base['first']], row[dict_base['last']], 
-                                      row[dict_base['email']], row[dict_base['state']], 
-                                      first_name, last_name, email, row2[dict2['state']]
+                                      base_email, base_state, 
+                                      first_name, last_name, email, state2
                                      ]
                         saved.append(save_entry)
                         #df_duplicate_accounts.append(save_entry)
@@ -260,61 +302,16 @@ def merge(df_base, dict_base, df2, dict2, append_cols):
                         continue
                 
                 # update donation totals
-                if "recur_payment" in append_cols and "recur_amt" in append_cols and "total_amt_leg" in append_cols and "total_amt_schol" in append_cols: # ptrans
-                    # last 5 cols are total, recurring, recur amt, total amount leg, total amount schol
-                    mergedTable[-1][-5] += float(amt)
-                    mergedTable[-1][-4] = recurring
-                    mergedTable[-1][-3] = 0.0 if recurring == "" else amt
-                    mergedTable[-1][-2] += amt - (scholpercent * amt)
-                    mergedTable[-1][-1] += scholpercent * amt
-                elif "total_amount" in append_cols: # trans
-                    # last col is total
-                    mergedTable[-1][-1] += amt
+                update_donation_totals(mergedTable, append_cols, {"amt": amt, 
+                                                                  "recurring": recurring, 
+                                                                  "legpercent": legpercent, 
+                                                                  "scholpercent": scholpercent})
             
-                counted[j] = "y"
+                df2.at[j,'Counted'] = "y"
 
-                
-    
-    if(counted != ["y"] * len(df2)):
-        print("\nNOTE: some rows were not merged/counted!\n")
-        df2['Counted'] = counted
-        count = 0
-        
-        for i, row in df2.iterrows():
-            if row['Counted'] != "y":
-                count+=1
-                
-                first_name, last_name, recurring, email, amt, legpercent, scholpercent = parse_row(row, dict2)
-                
-                state = ""
-
-                if "state" in dict2.keys():
-                    state = row[dict2['state']]
-
-                uncounted = [first_name, "", last_name,
-                             email, "", 
-                             state,
-                             amt]
-                
-                ### FIX Some recurring donors that are not in the people.csv are not combined
-                
-                #if (row[uncounted[2]]==last_name and row[uncounted[0]]==first_name:
-                    
-                #    uncounted_entry = [row[dict_base['first']], row[dict_base['last']], 
-                #                row[dict_base['email']], row[dict_base['state']], 
-                #                first_name, last_name, email, row2[dict2['state']]
-                #                ]
-                #        uncounted.append(uncounted_entry)
-
-                if "recur_payment" in append_cols and "recur_amt" in append_cols: # ptrans
-                    uncounted += [recurring, 0.0 if recurring == "" else amt, legpercent * amt, scholpercent * amt]
-                #print(uncounted)
-                    
-                mergedTable.append(uncounted)   
-                
-                
-        print("\nTotal: {}".format(count))
-        print("These have been appended to the end of the merged table.")
+    count = sum(df2['Counted'] != "y")
+    if count > 0:
+        print("\nNOTE: {} rows were not merged/counted!\n".format(count))
     else:
         print("\nConsolidation successful.")
         
@@ -328,8 +325,17 @@ def merge(df_base, dict_base, df2, dict2, append_cols):
 # merge transactions.csv into people.csv
 mergedTable = merge(df_people, dict_people, df_transactions, dict_trans, append_cols=["total_amount"])
 
-labels = ['first','middle','last','email','member type','state']
-labels.append('total amount')
+
+# In[ ]:
+
+
+### merge the uncounted transactions (by people who are not in people.csv)
+uncounted_trans = df_transactions.loc[df_transactions['Counted'] != "y"]
+
+dict_uncounted_people = dict([(key, dict_trans[key]) for key in dict_trans.keys() if key in ['first','last','email','state']])
+uncounted_people = uncounted_trans.loc[:,[dict_trans[key] for key in dict_uncounted_people.keys()]].drop_duplicates()
+
+# match format of the people table (with better labels):
 dict_merged = {"first":"first",
                "middle": "middle",
                "last":"last",
@@ -337,8 +343,21 @@ dict_merged = {"first":"first",
                "member_type": "member type",
                "state": "state",
 }
+uncounted_people.rename(columns={dict_trans[k]:dict_merged[k] for k in dict_uncounted_people.keys()},inplace=True)
+for c in dict_merged.keys():
+    if c not in uncounted_people.columns:
+        dict_uncounted_people[c] = c
+        uncounted_people[dict_uncounted_people[c]] = [""]*len(uncounted_people)
+uncounted_people= uncounted_people.reindex(columns=dict_merged.keys())
+dict_uncounted_people = dict_merged
 
-df_merged = pd.DataFrame(mergedTable, columns=labels)
+
+# In[ ]:
+
+
+unregistered_people_merged = merge(uncounted_people, dict_uncounted_people, uncounted_trans, dict_trans, append_cols=["total_amount"])
+mergedTable += unregistered_people_merged
+df_merged = pd.DataFrame(mergedTable, columns=list(dict_merged.keys())+['total amount'])
 
 
 # In[ ]:
@@ -346,6 +365,36 @@ df_merged = pd.DataFrame(mergedTable, columns=labels)
 
 # merge ptransactions.csv into the merged table
 finalTable = merge(df_merged, dict_merged, df_ptransactions, dict_ptrans, append_cols=["recur_payment", "recur_amt", "total_amt_leg", "total_amt_schol"])
+
+
+# In[ ]:
+
+
+### merge the uncounted paytrace transactions (people who are not in people.csv)
+uncounted_ptrans = df_ptransactions.loc[df_ptransactions['Counted'] != "y"]
+
+dict_uncounted_people = dict([(key, dict_ptrans[key]) for key in dict_ptrans.keys() if key in ['first','middle','last','email','member_type','state']])
+uncounted_people = uncounted_ptrans.loc[:,[dict_ptrans[key] for key in dict_uncounted_people.keys()]].drop_duplicates()
+uncounted_people.rename(columns={dict_uncounted_people[key]:dict_merged[key] for key in dict_uncounted_people.keys()},inplace=True)
+for c in df_merged.columns:
+    if c not in uncounted_people.columns:
+        dict_uncounted_people[c] = c
+        if c == "total amount":
+            newcol = [0.0]*len(uncounted_people)
+        else:
+            newcol = [""]*len(uncounted_people)
+        uncounted_people[dict_uncounted_people[c]] = newcol
+uncounted_people= uncounted_people.reindex(columns=list(df_merged.columns))
+dict_uncounted_people = dict_merged
+dict_uncounted_people["total amount"] = "total amount"
+
+
+# In[ ]:
+
+
+unregistered_people_merged = merge(uncounted_people, dict_uncounted_people, uncounted_ptrans, dict_ptrans, append_cols=["recur_payment", "recur_amt", "total_amt_leg", "total_amt_schol"])
+
+finalTable += unregistered_people_merged
 
 labels = list(df_merged.columns) # use the same columns as the merged df
 labels += ['recurring payment', 'recurring amt', 'total amount leg', 'total amount schol']
